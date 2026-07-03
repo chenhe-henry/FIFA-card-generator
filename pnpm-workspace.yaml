@@ -1,4 +1,4 @@
+packages:
+  - '.'
 allowBuilds:
   unrs-resolver: false
-patchedDependencies:
-  '@vue/vue3-jest': patches/@vue__vue3-jest.patch
