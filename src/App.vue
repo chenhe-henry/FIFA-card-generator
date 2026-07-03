@@ -1,15 +1,46 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { ElMessageBox } from 'element-plus'
 import GithubCardForm from './components/GithubCardForm.vue'
 import PlayerCard from './components/PlayerCard.vue'
 import { fetchGithubProfile, GitHubApiError, parseGithubUsername } from './services/github'
 import { computeCardStats } from './utils/cardStats'
-import type { CardRenderData } from './utils/canvasCard'
+import type { CardRenderData, Tier } from './utils/canvasCard'
 
 const loading = ref(false)
 const errorMessage = ref('')
 const card = ref<CardRenderData | null>(null)
 const avatarUrl = ref('')
+
+const founderMode = ref(false)
+const forcedTier = ref<Tier | ''>('')
+
+/** Founder mode: force the picked card face regardless of the real stats. */
+const displayCard = computed<CardRenderData | null>(() => {
+  if (!card.value) return null
+  if (founderMode.value && forcedTier.value) {
+    return { ...card.value, forcedTier: forcedTier.value }
+  }
+  return card.value
+})
+
+async function unlockFounderMode(): Promise<void> {
+  let value: string
+  try {
+    const result = await ElMessageBox.prompt('', 'Founder access', {
+      confirmButtonText: 'OK',
+      cancelButtonText: 'Cancel',
+      inputValidator: () => true,
+    })
+    value = result.value ?? ''
+  } catch {
+    // dialog cancelled or dismissed — do nothing
+    return
+  }
+  if (value.trim().toLowerCase() === 'henry') {
+    founderMode.value = true
+  }
+}
 
 async function generate(input: string): Promise<void> {
   const username = parseGithubUsername(input)
@@ -38,13 +69,21 @@ async function generate(input: string): Promise<void> {
 <template>
   <el-container class="app-shell">
     <el-header class="app-header">
-      <span class="app-title">fifa-card-generator</span>
+      <span class="app-title" @dblclick="unlockFounderMode">fifa-card-generator</span>
+      <el-tag v-if="founderMode" type="warning" size="small" class="app-founder-tag" effect="dark">
+        Founder
+      </el-tag>
     </el-header>
     <el-main class="app-main">
       <p class="app-subtitle">Turn a GitHub profile into an EAFC26-style player card.</p>
-      <GithubCardForm :loading="loading" @generate="generate" />
+      <GithubCardForm
+        v-model:forced-tier="forcedTier"
+        :loading="loading"
+        :founder-mode="founderMode"
+        @generate="generate"
+      />
       <el-alert v-if="errorMessage" :title="errorMessage" type="error" class="app-error" show-icon />
-      <PlayerCard v-if="card" :data="card" :avatar-url="avatarUrl" class="app-card" />
+      <PlayerCard v-if="displayCard" :data="displayCard" :avatar-url="avatarUrl" class="app-card" />
     </el-main>
   </el-container>
 </template>
@@ -63,6 +102,12 @@ async function generate(input: string): Promise<void> {
 .app-title {
   font-size: 1.25rem;
   font-weight: 600;
+  user-select: none;
+  cursor: default;
+}
+
+.app-founder-tag {
+  margin-left: 10px;
 }
 
 .app-main {

@@ -1,17 +1,29 @@
 import type { CardStats } from './cardStats'
 
+export type Tier = 'bronze' | 'silver' | 'gold' | 'toty' | 'icon' | 'toty-icon'
+
 export interface CardRenderData {
   displayName: string
   handle: string
   stats: CardStats
+  /** When set, overrides the stats-derived tier (founder mode). */
+  forcedTier?: Tier
 }
+
+/** Selectable card faces, in ladder order — used by founder mode's dropdown. */
+export const TIER_OPTIONS: ReadonlyArray<{ value: Tier; label: string }> = [
+  { value: 'bronze', label: 'Bronze' },
+  { value: 'silver', label: 'Silver' },
+  { value: 'gold', label: 'Gold' },
+  { value: 'toty', label: 'TOTY' },
+  { value: 'icon', label: 'Icon' },
+  { value: 'toty-icon', label: 'TOTY Icon' },
+]
 
 const WIDTH = 360
 const HEIGHT = 500
 // Render at 2x for crisp text/edges on retina and in the downloaded PNG.
 const SCALE = 2
-
-type Tier = 'bronze' | 'silver' | 'gold' | 'toty' | 'icon' | 'toty-icon'
 
 /**
  * Gold caps at 89. Above that, which special tier a card gets depends on *why*
@@ -349,7 +361,7 @@ export function drawPlayerCard(canvas: HTMLCanvasElement, data: CardRenderData, 
   if (!ctx) return
   ctx.scale(SCALE, SCALE)
 
-  const style = TIER_STYLES[tierFor(data.stats)]
+  const style = TIER_STYLES[data.forcedTier ?? tierFor(data.stats)]
 
   ctx.clearRect(0, 0, WIDTH, HEIGHT)
   drawBackground(ctx, style)
