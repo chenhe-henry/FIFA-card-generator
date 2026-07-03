@@ -7,7 +7,9 @@ export interface CardRenderData {
 }
 
 const WIDTH = 360
-const HEIGHT = 460
+const HEIGHT = 500
+// Render at 2x for crisp text/edges on retina and in the downloaded PNG.
+const SCALE = 2
 
 type Tier = 'bronze' | 'silver' | 'gold' | 'toty' | 'icon' | 'toty-icon'
 
@@ -26,49 +28,80 @@ function tierFor(stats: CardStats): Tier {
   return 'bronze'
 }
 
-const TIER_COLORS: Record<Tier, [string, string]> = {
-  bronze: ['#c98a4b', '#7a4a24'],
-  silver: ['#e8e8e8', '#9a9a9a'],
-  gold: ['#f4d160', '#b8860b'],
-  toty: ['#2b2b2b', '#000000'],
-  icon: ['#f5f0e6', '#d9c9a3'],
-  'toty-icon': ['#1a1a2e', '#000000'],
+interface TierStyle {
+  /** Three-stop gradient: outer, bright mid-band, outer. */
+  gradient: [string, string, string]
+  text: string
+  accent: string
+  /** Bright + dark ray tint for the sunburst. */
+  ray: [string, string]
+  frameOuter: string
+  frameInner: string
+  divider: string
+  label: string
 }
 
-const TIER_TEXT: Record<Tier, string> = {
-  bronze: '#2e1a0d',
-  silver: '#26282b',
-  gold: '#4a3400',
-  toty: '#f4d160',
-  icon: '#6b4f2a',
-  'toty-icon': '#ffffff',
-}
-
-const TIER_ACCENT: Record<Tier, string> = {
-  bronze: TIER_TEXT.bronze,
-  silver: TIER_TEXT.silver,
-  gold: TIER_TEXT.gold,
-  toty: '#f4d160',
-  icon: '#8a6a35',
-  'toty-icon': '#f4d160',
-}
-
-const TIER_BORDER: Record<Tier, string> = {
-  bronze: 'rgba(255, 255, 255, 0.55)',
-  silver: 'rgba(255, 255, 255, 0.55)',
-  gold: 'rgba(255, 255, 255, 0.55)',
-  toty: 'rgba(244, 209, 96, 0.8)',
-  icon: 'rgba(180, 140, 70, 0.6)',
-  'toty-icon': 'rgba(244, 209, 96, 0.9)',
-}
-
-const TIER_LABEL: Record<Tier, string> = {
-  bronze: '',
-  silver: '',
-  gold: '',
-  toty: 'TEAM OF THE YEAR',
-  icon: 'ICON',
-  'toty-icon': 'TOTY ICON',
+const TIER_STYLES: Record<Tier, TierStyle> = {
+  bronze: {
+    gradient: ['#8a5522', '#d99a5c', '#7a4a24'],
+    text: '#2e1a0d',
+    accent: '#3a2210',
+    ray: ['rgba(255, 220, 170, 0.30)', 'rgba(60, 30, 10, 0.10)'],
+    frameOuter: '#e6b380',
+    frameInner: '#5e3617',
+    divider: 'rgba(46, 26, 13, 0.4)',
+    label: '',
+  },
+  silver: {
+    gradient: ['#9a9a9a', '#eceff1', '#8f9296'],
+    text: '#26282b',
+    accent: '#1c1e21',
+    ray: ['rgba(255, 255, 255, 0.35)', 'rgba(40, 42, 46, 0.10)'],
+    frameOuter: '#f4f6f8',
+    frameInner: '#7a7d82',
+    divider: 'rgba(38, 40, 43, 0.35)',
+    label: '',
+  },
+  gold: {
+    gradient: ['#b8860b', '#f7e08a', '#c8920c'],
+    text: '#4a3400',
+    accent: '#2f2100',
+    ray: ['rgba(255, 248, 205, 0.40)', 'rgba(90, 60, 0, 0.10)'],
+    frameOuter: '#fff2b8',
+    frameInner: '#a5780a',
+    divider: 'rgba(74, 52, 0, 0.4)',
+    label: '',
+  },
+  toty: {
+    gradient: ['#0d0d14', '#2b2b3a', '#000000'],
+    text: '#f4d160',
+    accent: '#f4d160',
+    ray: ['rgba(244, 209, 96, 0.22)', 'rgba(0, 0, 0, 0.25)'],
+    frameOuter: '#f4d160',
+    frameInner: '#8a6a20',
+    divider: 'rgba(244, 209, 96, 0.5)',
+    label: 'TEAM OF THE YEAR',
+  },
+  icon: {
+    gradient: ['#d9c9a3', '#faf6ec', '#cbb98f'],
+    text: '#6b4f2a',
+    accent: '#7a5a2e',
+    ray: ['rgba(255, 255, 255, 0.45)', 'rgba(120, 90, 45, 0.10)'],
+    frameOuter: '#f3e7cb',
+    frameInner: '#b89b64',
+    divider: 'rgba(107, 79, 42, 0.4)',
+    label: 'ICON',
+  },
+  'toty-icon': {
+    gradient: ['#12121f', '#2a2a44', '#000000'],
+    text: '#ffffff',
+    accent: '#f4d160',
+    ray: ['rgba(244, 209, 96, 0.28)', 'rgba(0, 0, 0, 0.25)'],
+    frameOuter: '#f4d160',
+    frameInner: '#c9a24a',
+    divider: 'rgba(244, 209, 96, 0.55)',
+    label: 'TOTY ICON',
+  },
 }
 
 const LANGUAGE_CODES: Record<string, string> = {
@@ -93,64 +126,109 @@ function languageCode(language: string): string {
 }
 
 /**
- * The card silhouette FIFA/EAFC ultimate team cards are known for: a scalloped
- * double-peak top tapering to a point at the bottom. Original geometry, not
- * traced from any EA asset.
+ * The card silhouette FIFA/EAFC ultimate team cards are known for: a subtle
+ * double-peak crest at the top tapering to a rounded point at the bottom.
+ * Original geometry, not traced from any EA asset.
  */
-function traceShieldPath(ctx: CanvasRenderingContext2D): void {
+function traceShieldPath(ctx: CanvasRenderingContext2D, pad = 0): void {
   const w = WIDTH
   const h = HEIGHT
+  const l = pad
+  const r = w - pad
+  const t = pad
 
   ctx.beginPath()
-  ctx.moveTo(w * 0.05, h * 0.14)
-  ctx.quadraticCurveTo(w * 0.05, h * 0.02, w * 0.28, h * 0.02)
-  ctx.quadraticCurveTo(w * 0.42, h * 0.02, w * 0.5, h * 0.045)
-  ctx.quadraticCurveTo(w * 0.58, h * 0.02, w * 0.72, h * 0.02)
-  ctx.quadraticCurveTo(w * 0.95, h * 0.02, w * 0.95, h * 0.14)
-  ctx.quadraticCurveTo(w, h * 0.4, w * 0.96, h * 0.68)
-  ctx.quadraticCurveTo(w * 0.93, h * 0.82, w * 0.68, h * 0.94)
-  ctx.quadraticCurveTo(w * 0.58, h * 0.99, w * 0.5, h)
-  ctx.quadraticCurveTo(w * 0.42, h * 0.99, w * 0.32, h * 0.94)
-  ctx.quadraticCurveTo(w * 0.07, h * 0.82, w * 0.04, h * 0.68)
-  ctx.quadraticCurveTo(0, h * 0.4, w * 0.05, h * 0.14)
+  ctx.moveTo(l + w * 0.02, h * 0.13)
+  ctx.quadraticCurveTo(l + w * 0.02, t + h * 0.03, w * 0.27, t + h * 0.03)
+  ctx.quadraticCurveTo(w * 0.43, t + h * 0.03, w * 0.5, h * 0.075)
+  ctx.quadraticCurveTo(w * 0.57, t + h * 0.03, w * 0.73, t + h * 0.03)
+  ctx.quadraticCurveTo(r - w * 0.02, t + h * 0.03, r - w * 0.02, h * 0.13)
+  ctx.quadraticCurveTo(r, h * 0.42, r - w * 0.04, h * 0.66)
+  ctx.quadraticCurveTo(r - w * 0.08, h * 0.83, w * 0.66, h * 0.95)
+  ctx.quadraticCurveTo(w * 0.57, h * 0.995, w * 0.5, h - pad)
+  ctx.quadraticCurveTo(w * 0.43, h * 0.995, w * 0.34, h * 0.95)
+  ctx.quadraticCurveTo(l + w * 0.08, h * 0.83, l + w * 0.04, h * 0.66)
+  ctx.quadraticCurveTo(l, h * 0.42, l + w * 0.02, h * 0.13)
   ctx.closePath()
 }
 
-function drawBackground(ctx: CanvasRenderingContext2D, tier: Tier): void {
+function drawBackground(ctx: CanvasRenderingContext2D, style: TierStyle): void {
   traceShieldPath(ctx)
-  const [from, to] = TIER_COLORS[tier]
-  const gradient = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT)
-  gradient.addColorStop(0, from)
-  gradient.addColorStop(1, to)
+  const [a, b, c] = style.gradient
+  const gradient = ctx.createLinearGradient(0, 0, WIDTH * 0.4, HEIGHT)
+  gradient.addColorStop(0, a)
+  gradient.addColorStop(0.5, b)
+  gradient.addColorStop(1, c)
   ctx.fillStyle = gradient
   ctx.fill()
+}
+
+/**
+ * Alternating light/dark wedge rays fanning out from behind the player's head —
+ * the signature texture of a FIFA gold card.
+ */
+function drawSunburst(ctx: CanvasRenderingContext2D, style: TierStyle): void {
+  const cx = WIDTH / 2
+  const cy = HEIGHT * 0.28
+  const rays = 44
+  const reach = HEIGHT * 1.1
+  const [bright, dark] = style.ray
 
   ctx.save()
-  ctx.clip()
-  ctx.strokeStyle = TIER_BORDER[tier]
-  ctx.lineWidth = 5
+  ctx.translate(cx, cy)
+  for (let i = 0; i < rays; i++) {
+    const angle = (Math.PI * 2 * i) / rays
+    ctx.beginPath()
+    ctx.moveTo(0, 0)
+    ctx.arc(0, 0, reach, angle, angle + (Math.PI * 2) / rays)
+    ctx.closePath()
+    ctx.fillStyle = i % 2 === 0 ? bright : dark
+    ctx.fill()
+  }
+  ctx.restore()
+}
+
+function drawFrame(ctx: CanvasRenderingContext2D, style: TierStyle): void {
+  ctx.save()
+  traceShieldPath(ctx, 3)
+  ctx.strokeStyle = style.frameInner
+  ctx.lineWidth = 2
+  ctx.stroke()
+  ctx.restore()
+
+  ctx.save()
+  traceShieldPath(ctx)
+  ctx.strokeStyle = style.frameOuter
+  ctx.lineWidth = 4
   ctx.stroke()
   ctx.restore()
 }
 
-function drawHeader(ctx: CanvasRenderingContext2D, stats: CardStats, tier: Tier): void {
+function drawHeader(ctx: CanvasRenderingContext2D, stats: CardStats, style: TierStyle): void {
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
 
-  ctx.fillStyle = TIER_ACCENT[tier]
-  ctx.font = 'bold 52px system-ui, sans-serif'
-  ctx.fillText(String(stats.ovr), WIDTH * 0.09, HEIGHT * 0.17)
+  ctx.fillStyle = style.accent
+  ctx.font = '800 54px system-ui, sans-serif'
+  ctx.fillText(String(stats.ovr), WIDTH * 0.1, HEIGHT * 0.16)
 
-  ctx.fillStyle = TIER_TEXT[tier]
+  ctx.fillStyle = style.text
   ctx.font = 'bold 20px system-ui, sans-serif'
-  ctx.fillText(languageCode(stats.position), WIDTH * 0.09, HEIGHT * 0.21)
+  ctx.fillText(languageCode(stats.position), WIDTH * 0.1, HEIGHT * 0.2)
 
-  const label = TIER_LABEL[tier]
-  if (label) {
+  // thin rule under the position, mirroring the real card's OVR block
+  ctx.strokeStyle = style.divider
+  ctx.lineWidth = 1.5
+  ctx.beginPath()
+  ctx.moveTo(WIDTH * 0.1, HEIGHT * 0.215)
+  ctx.lineTo(WIDTH * 0.22, HEIGHT * 0.215)
+  ctx.stroke()
+
+  if (style.label) {
     ctx.textAlign = 'center'
     ctx.font = 'bold 11px system-ui, sans-serif'
-    ctx.fillStyle = TIER_ACCENT[tier]
-    ctx.fillText(label, WIDTH / 2, HEIGHT * 0.085)
+    ctx.fillStyle = style.accent
+    ctx.fillText(style.label, WIDTH / 2, HEIGHT * 0.12)
   }
 }
 
@@ -166,16 +244,18 @@ function buildFadedAvatar(image: HTMLImageElement, size: number): HTMLCanvasElem
   const drawHeight = image.height * scale
   octx.drawImage(image, (size - drawWidth) / 2, (size - drawHeight) / 2, drawWidth, drawHeight)
 
+  // Fade the edges (especially the bottom) so the portrait melts into the card.
   octx.globalCompositeOperation = 'destination-in'
   const gradient = octx.createRadialGradient(
     size / 2,
+    size * 0.42,
+    size * 0.28,
     size / 2,
-    size * 0.3,
-    size / 2,
-    size / 2,
-    size * 0.5,
+    size * 0.42,
+    size * 0.52,
   )
   gradient.addColorStop(0, 'rgba(0, 0, 0, 1)')
+  gradient.addColorStop(0.85, 'rgba(0, 0, 0, 0.9)')
   gradient.addColorStop(1, 'rgba(0, 0, 0, 0)')
   octx.fillStyle = gradient
   octx.fillRect(0, 0, size, size)
@@ -187,26 +267,42 @@ function drawAvatar(ctx: CanvasRenderingContext2D, image: HTMLImageElement | nul
   if (!image) return
 
   const cx = WIDTH / 2
-  const cy = HEIGHT * 0.38
-  const size = WIDTH * 0.62
+  const cy = HEIGHT * 0.36
+  const size = WIDTH * 0.66
 
-  const faded = buildFadedAvatar(image, size)
+  const faded = buildFadedAvatar(image, size * SCALE)
   ctx.drawImage(faded, cx - size / 2, cy - size / 2, size, size)
 }
 
-function drawName(ctx: CanvasRenderingContext2D, name: string, handle: string, textColor: string): void {
-  ctx.textAlign = 'center'
-  ctx.fillStyle = textColor
-  ctx.font = 'bold 24px system-ui, sans-serif'
-  ctx.fillText(name.slice(0, 22), WIDTH / 2, HEIGHT * 0.63)
+function drawName(ctx: CanvasRenderingContext2D, name: string, handle: string, style: TierStyle): void {
+  const nameY = HEIGHT * 0.6
 
-  ctx.font = '15px system-ui, sans-serif'
-  ctx.globalAlpha = 0.75
-  ctx.fillText(`@${handle}`, WIDTH / 2, HEIGHT * 0.665)
+  ctx.textAlign = 'center'
+  ctx.fillStyle = style.text
+  ctx.font = '800 26px system-ui, sans-serif'
+  ctx.fillText(name.slice(0, 20).toUpperCase(), WIDTH / 2, nameY)
+
+  ctx.font = '14px system-ui, sans-serif'
+  ctx.globalAlpha = 0.7
+  ctx.fillText(`@${handle}`, WIDTH / 2, nameY + 20)
   ctx.globalAlpha = 1
+
+  // divider line under the name, tapered toward the edges
+  const dividerY = nameY + 34
+  const half = WIDTH * 0.36
+  const grad = ctx.createLinearGradient(WIDTH / 2 - half, 0, WIDTH / 2 + half, 0)
+  grad.addColorStop(0, 'rgba(0,0,0,0)')
+  grad.addColorStop(0.5, style.divider)
+  grad.addColorStop(1, 'rgba(0,0,0,0)')
+  ctx.strokeStyle = grad
+  ctx.lineWidth = 1.5
+  ctx.beginPath()
+  ctx.moveTo(WIDTH / 2 - half, dividerY)
+  ctx.lineTo(WIDTH / 2 + half, dividerY)
+  ctx.stroke()
 }
 
-function drawStats(ctx: CanvasRenderingContext2D, stats: CardStats, textColor: string): void {
+function drawStats(ctx: CanvasRenderingContext2D, stats: CardStats, style: TierStyle): void {
   const entries: Array<[string, number]> = [
     ['PAC', stats.pac],
     ['SHO', stats.sho],
@@ -216,21 +312,21 @@ function drawStats(ctx: CanvasRenderingContext2D, stats: CardStats, textColor: s
     ['PHY', stats.phy],
   ]
 
-  const inset = WIDTH * 0.1
+  const inset = WIDTH * 0.11
   const columnWidth = (WIDTH - inset * 2) / entries.length
-  const valueY = HEIGHT * 0.72
-  const labelY = valueY + 20
+  const valueY = HEIGHT * 0.715
+  const labelY = valueY + 19
 
   entries.forEach(([label, value], index) => {
     const x = inset + columnWidth * index + columnWidth / 2
 
     ctx.textAlign = 'center'
-    ctx.fillStyle = textColor
-    ctx.font = 'bold 18px system-ui, sans-serif'
+    ctx.fillStyle = style.text
+    ctx.font = '800 21px system-ui, sans-serif'
     ctx.fillText(String(value), x, valueY)
 
-    ctx.font = '11px system-ui, sans-serif'
-    ctx.globalAlpha = 0.75
+    ctx.font = 'bold 11px system-ui, sans-serif'
+    ctx.globalAlpha = 0.7
     ctx.fillText(label, x, labelY)
     ctx.globalAlpha = 1
   })
@@ -247,25 +343,28 @@ export async function loadAvatarImage(url: string): Promise<HTMLImageElement | n
 }
 
 export function drawPlayerCard(canvas: HTMLCanvasElement, data: CardRenderData, avatarImage: HTMLImageElement | null): void {
-  canvas.width = WIDTH
-  canvas.height = HEIGHT
+  canvas.width = WIDTH * SCALE
+  canvas.height = HEIGHT * SCALE
   const ctx = canvas.getContext('2d')
   if (!ctx) return
+  ctx.scale(SCALE, SCALE)
 
-  const tier = tierFor(data.stats)
-  const textColor = TIER_TEXT[tier]
+  const style = TIER_STYLES[tierFor(data.stats)]
 
   ctx.clearRect(0, 0, WIDTH, HEIGHT)
-  drawBackground(ctx, tier)
+  drawBackground(ctx, style)
 
   ctx.save()
   traceShieldPath(ctx)
   ctx.clip()
-  drawHeader(ctx, data.stats, tier)
+  drawSunburst(ctx, style)
   drawAvatar(ctx, avatarImage)
-  drawName(ctx, data.displayName, data.handle, textColor)
-  drawStats(ctx, data.stats, textColor)
+  drawHeader(ctx, data.stats, style)
+  drawName(ctx, data.displayName, data.handle, style)
+  drawStats(ctx, data.stats, style)
   ctx.restore()
+
+  drawFrame(ctx, style)
 }
 
 export const CARD_WIDTH = WIDTH
