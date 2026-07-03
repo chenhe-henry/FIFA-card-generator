@@ -126,29 +126,29 @@ function languageCode(language: string): string {
 }
 
 /**
- * The card silhouette FIFA/EAFC ultimate team cards are known for: a subtle
- * double-peak crest at the top tapering to a rounded point at the bottom.
- * Original geometry, not traced from any EA asset.
+ * The card silhouette of an EAFC card: a gently domed top that rises to a soft
+ * central peak with rounded shoulders, near-vertical sides, and a flat bottom
+ * edge with rounded corners. Original geometry, not traced from any EA asset.
  */
 function traceShieldPath(ctx: CanvasRenderingContext2D, pad = 0): void {
-  const w = WIDTH
-  const h = HEIGHT
-  const l = pad
-  const r = w - pad
-  const t = pad
+  const L = pad
+  const T = pad
+  const w = WIDTH - pad * 2
+  const h = HEIGHT - pad * 2
+  const X = (fx: number): number => L + fx * w
+  const Y = (fy: number): number => T + fy * h
 
   ctx.beginPath()
-  ctx.moveTo(l + w * 0.02, h * 0.13)
-  ctx.quadraticCurveTo(l + w * 0.02, t + h * 0.03, w * 0.27, t + h * 0.03)
-  ctx.quadraticCurveTo(w * 0.43, t + h * 0.03, w * 0.5, h * 0.075)
-  ctx.quadraticCurveTo(w * 0.57, t + h * 0.03, w * 0.73, t + h * 0.03)
-  ctx.quadraticCurveTo(r - w * 0.02, t + h * 0.03, r - w * 0.02, h * 0.13)
-  ctx.quadraticCurveTo(r, h * 0.42, r - w * 0.04, h * 0.66)
-  ctx.quadraticCurveTo(r - w * 0.08, h * 0.83, w * 0.66, h * 0.95)
-  ctx.quadraticCurveTo(w * 0.57, h * 0.995, w * 0.5, h - pad)
-  ctx.quadraticCurveTo(w * 0.43, h * 0.995, w * 0.34, h * 0.95)
-  ctx.quadraticCurveTo(l + w * 0.08, h * 0.83, l + w * 0.04, h * 0.66)
-  ctx.quadraticCurveTo(l, h * 0.42, l + w * 0.02, h * 0.13)
+  ctx.moveTo(X(0.05), Y(0.11)) // top of left side
+  ctx.lineTo(X(0.05), Y(0.86)) // left side down
+  ctx.quadraticCurveTo(X(0.05), Y(0.95), X(0.16), Y(0.95)) // bottom-left corner
+  ctx.lineTo(X(0.84), Y(0.95)) // flat bottom edge
+  ctx.quadraticCurveTo(X(0.95), Y(0.95), X(0.95), Y(0.86)) // bottom-right corner
+  ctx.lineTo(X(0.95), Y(0.11)) // right side up
+  ctx.quadraticCurveTo(X(0.95), Y(0.035), X(0.74), Y(0.035)) // top-right corner
+  ctx.quadraticCurveTo(X(0.58), Y(0.035), X(0.5), Y(0.008)) // up to soft central peak
+  ctx.quadraticCurveTo(X(0.42), Y(0.035), X(0.26), Y(0.035)) // down to left shoulder
+  ctx.quadraticCurveTo(X(0.05), Y(0.035), X(0.05), Y(0.11)) // top-left corner
   ctx.closePath()
 }
 
