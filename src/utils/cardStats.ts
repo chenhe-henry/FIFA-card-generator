@@ -8,7 +8,10 @@ export interface CardStats {
   def: number
   phy: number
   ovr: number
+  /** FIFA-style position code (e.g. "CAM", "CB", "GK"), derived from the stat profile. */
   position: string
+  /** Most-used GitHub language (e.g. "TypeScript", "Vue"), shown as a badge, not a position. */
+  language: string
 }
 
 const BASE_FLOOR = 30
@@ -57,6 +60,51 @@ function yearsSince(isoDate: string): number {
   return ms / (1000 * 60 * 60 * 24 * 365.25)
 }
 
+type StatKey = 'pac' | 'sho' | 'pas' | 'dri' | 'def' | 'phy'
+type SixStats = Record<StatKey, number>
+
+interface PositionArchetype {
+  code: string
+  weights: Partial<SixStats>
+}
+
+/** Below this OVR the profile reads as too weak to fit any outfield archetype. */
+const GOALKEEPER_OVR_CEILING = 45
+
+const POSITION_ARCHETYPES: readonly PositionArchetype[] = [
+  { code: 'ST', weights: { pac: 0.3, sho: 0.4, dri: 0.2, phy: 0.1 } },
+  { code: 'LW', weights: { pac: 0.4, sho: 0.15, pas: 0.1, dri: 0.35 } },
+  { code: 'CAM', weights: { pac: 0.15, sho: 0.15, pas: 0.35, dri: 0.35 } },
+  { code: 'CM', weights: { pas: 0.4, dri: 0.2, def: 0.2, phy: 0.2 } },
+  { code: 'CDM', weights: { pas: 0.25, dri: 0.1, def: 0.4, phy: 0.25 } },
+  { code: 'CB', weights: { pac: 0.15, def: 0.5, phy: 0.35 } },
+  { code: 'FB', weights: { pac: 0.35, pas: 0.15, dri: 0.15, def: 0.35 } },
+]
+
+/**
+ * Position is whichever archetype's weighted stat profile the card best matches —
+ * fast+dribbly reads as a winger, defensive+physical reads as a center-back, etc.
+ * A very low overall rating skips the archetype match entirely and reads as GK,
+ * since none of our six stats represent goalkeeping ability anyway.
+ */
+function derivePosition(stats: SixStats & { ovr: number }): string {
+  if (stats.ovr < GOALKEEPER_OVR_CEILING) return 'GK'
+
+  let bestCode = POSITION_ARCHETYPES[0].code
+  let bestScore = -Infinity
+  for (const archetype of POSITION_ARCHETYPES) {
+    let score = 0
+    for (const key of Object.keys(archetype.weights) as StatKey[]) {
+      score += (archetype.weights[key] ?? 0) * stats[key]
+    }
+    if (score > bestScore) {
+      bestScore = score
+      bestCode = archetype.code
+    }
+  }
+  return bestCode
+}
+
 export function computeCardStats(data: GitHubProfileData): CardStats {
   const ownRepos = data.repos.filter((repo) => !repo.fork)
   const totalStars = ownRepos.reduce((sum, repo) => sum + repo.stargazers_count, 0)
@@ -75,6 +123,7 @@ export function computeCardStats(data: GitHubProfileData): CardStats {
   const phy = scaleStat(yearsActive, 15, BASE_FLOOR)
 
   const ovr = Math.round((pac + sho + pas + dri + def + phy) / 6)
+  const position = derivePosition({ pac, sho, pas, dri, def, phy, ovr })
 
-  return { pac, sho, pas, dri, def, phy, ovr, position: topLanguage(data.repos) }
+  return { pac, sho, pas, dri, def, phy, ovr, position, language: topLanguage(data.repos) }
 }

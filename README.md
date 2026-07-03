@@ -23,6 +23,15 @@ pnpm build
 pnpm test
 ```
 
+## Position
+
+Position (ST/LW/CAM/CM/CDM/CB/FB) is derived from the six stats: each position has a
+weighted profile (e.g. CB weights DEF and PHY heavily, ST weights SHO and PAC), and the
+card is assigned whichever position its stats best match. A very low overall rating
+(< 45) reads as GK instead, since none of the six stats represent goalkeeping ability.
+The account's top GitHub language is shown separately, as a brand-colored badge in the
+top-right corner (not the position).
+
 ## Card tiers
 
 Tier is derived from the overall rating, with special faces above gold based on *why*

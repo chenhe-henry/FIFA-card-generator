@@ -116,25 +116,78 @@ const TIER_STYLES: Record<Tier, TierStyle> = {
   },
 }
 
-const LANGUAGE_CODES: Record<string, string> = {
-  TypeScript: 'TS',
-  JavaScript: 'JS',
-  Python: 'PY',
-  Rust: 'RS',
-  Go: 'GO',
-  Java: 'JV',
-  Ruby: 'RB',
-  PHP: 'PHP',
-  Swift: 'SW',
-  Kotlin: 'KT',
-  'C++': 'C++',
-  'C#': 'C#',
-  Shell: 'SH',
-  'Full Stack': 'DEV',
+interface LanguageBadge {
+  color: string
+  textColor: string
+  glyph: string
+  /** 'triangle' draws a simplified brand mark instead of the glyph text. */
+  shape?: 'triangle'
 }
 
-function languageCode(language: string): string {
-  return LANGUAGE_CODES[language] ?? language.slice(0, 3).toUpperCase()
+/**
+ * Brand-colored badges for the most common GitHub `language` values. Marks are
+ * simplified, original renderings (solid color + glyph/shape) in the same spirit
+ * as devicon/shields.io badges — not traced from any official logo artwork.
+ */
+const LANGUAGE_BADGES: Record<string, LanguageBadge> = {
+  TypeScript: { color: '#3178c6', textColor: '#ffffff', glyph: 'TS' },
+  JavaScript: { color: '#f7df1e', textColor: '#1a1a1a', glyph: 'JS' },
+  Vue: { color: '#42b883', textColor: '#ffffff', glyph: '', shape: 'triangle' },
+  Python: { color: '#3776ab', textColor: '#ffd43b', glyph: 'PY' },
+  Rust: { color: '#dea584', textColor: '#1a1a1a', glyph: 'RS' },
+  Go: { color: '#00add8', textColor: '#ffffff', glyph: 'GO' },
+  Java: { color: '#e76f00', textColor: '#ffffff', glyph: 'JV' },
+  Ruby: { color: '#cc342d', textColor: '#ffffff', glyph: 'RB' },
+  PHP: { color: '#787cb5', textColor: '#ffffff', glyph: 'PHP' },
+  Swift: { color: '#f05138', textColor: '#ffffff', glyph: 'SW' },
+  Kotlin: { color: '#7f52ff', textColor: '#ffffff', glyph: 'KT' },
+  'C++': { color: '#00599c', textColor: '#ffffff', glyph: 'C++' },
+  'C#': { color: '#178600', textColor: '#ffffff', glyph: 'C#' },
+  Shell: { color: '#4eaa25', textColor: '#ffffff', glyph: 'SH' },
+  HTML: { color: '#e34c26', textColor: '#ffffff', glyph: 'HTML' },
+  CSS: { color: '#264de4', textColor: '#ffffff', glyph: 'CSS' },
+}
+
+function badgeFor(language: string): LanguageBadge {
+  return LANGUAGE_BADGES[language] ?? { color: '#6e7681', textColor: '#ffffff', glyph: language.slice(0, 2).toUpperCase() }
+}
+
+/** Small rounded-square badge, top-right, showing the account's top GitHub language. */
+function drawLanguageBadge(ctx: CanvasRenderingContext2D, language: string): void {
+  const size = WIDTH * 0.16
+  const x = WIDTH * 0.78
+  const y = HEIGHT * 0.045
+  const radius = size * 0.22
+  const badge = badgeFor(language)
+
+  ctx.save()
+  ctx.beginPath()
+  ctx.moveTo(x + radius, y)
+  ctx.arcTo(x + size, y, x + size, y + size, radius)
+  ctx.arcTo(x + size, y + size, x, y + size, radius)
+  ctx.arcTo(x, y + size, x, y, radius)
+  ctx.arcTo(x, y, x + size, y, radius)
+  ctx.closePath()
+  ctx.fillStyle = badge.color
+  ctx.fill()
+
+  if (badge.shape === 'triangle') {
+    const cx = x + size / 2
+    ctx.beginPath()
+    ctx.moveTo(cx, y + size * 0.24)
+    ctx.lineTo(x + size * 0.76, y + size * 0.76)
+    ctx.lineTo(x + size * 0.24, y + size * 0.76)
+    ctx.closePath()
+    ctx.fillStyle = badge.textColor
+    ctx.fill()
+  } else {
+    ctx.fillStyle = badge.textColor
+    ctx.font = `800 ${size * 0.32}px system-ui, sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(badge.glyph, x + size / 2, y + size / 2 + size * 0.02)
+  }
+  ctx.restore()
 }
 
 /**
@@ -226,7 +279,7 @@ function drawHeader(ctx: CanvasRenderingContext2D, stats: CardStats, style: Tier
 
   ctx.fillStyle = style.text
   ctx.font = 'bold 20px system-ui, sans-serif'
-  ctx.fillText(languageCode(stats.position), WIDTH * 0.1, HEIGHT * 0.2)
+  ctx.fillText(stats.position, WIDTH * 0.1, HEIGHT * 0.2)
 
   // thin rule under the position, mirroring the real card's OVR block
   ctx.strokeStyle = style.divider
@@ -372,6 +425,7 @@ export function drawPlayerCard(canvas: HTMLCanvasElement, data: CardRenderData, 
   drawSunburst(ctx, style)
   drawAvatar(ctx, avatarImage)
   drawHeader(ctx, data.stats, style)
+  drawLanguageBadge(ctx, data.stats.language)
   drawName(ctx, data.displayName, data.handle, style)
   drawStats(ctx, data.stats, style)
   ctx.restore()

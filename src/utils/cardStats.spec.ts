@@ -23,7 +23,7 @@ function makeProfile(overrides: Partial<GitHubProfileData> = {}): GitHubProfileD
 }
 
 describe('computeCardStats', () => {
-  it('floors every stat at 30 for a brand-new, inactive account', () => {
+  it('floors every stat at 30 for a brand-new, inactive account, and reads as GK', () => {
     const stats = computeCardStats(makeProfile())
     expect(stats.pac).toBe(30)
     expect(stats.sho).toBe(30)
@@ -31,6 +31,7 @@ describe('computeCardStats', () => {
     expect(stats.dri).toBe(30)
     expect(stats.def).toBe(30)
     expect(stats.ovr).toBe(30)
+    expect(stats.position).toBe('GK')
   })
 
   it('raises the floor on star/follower/fork/language stats for a tenured, active account with no social traction', () => {
@@ -75,7 +76,7 @@ describe('computeCardStats', () => {
     expect(stats.sho).toBe(99)
     expect(stats.pas).toBe(99)
     expect(stats.phy).toBe(99)
-    expect(stats.position).toBe('TypeScript')
+    expect(stats.language).toBe('TypeScript')
   })
 
   it('excludes forked repos from stars, forks, and language stats', () => {
@@ -91,6 +92,36 @@ describe('computeCardStats', () => {
 
   it('falls back to "Full Stack" when no language signal exists', () => {
     const stats = computeCardStats(makeProfile())
-    expect(stats.position).toBe('Full Stack')
+    expect(stats.language).toBe('Full Stack')
+  })
+
+  it('reads a defense/physicality-heavy profile as CB', () => {
+    const stats = computeCardStats(
+      makeProfile({
+        user: {
+          ...makeProfile().user,
+          followers: 0,
+          created_at: new Date(Date.now() - 15 * 365.25 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        repos: [{ name: 'a', language: 'C', stargazers_count: 0, forks_count: 5000, fork: false }],
+        recentCommitCount: 0,
+      }),
+    )
+    expect(stats.position).toBe('CB')
+  })
+
+  it('reads a pace/shooting-heavy, low-defense profile as ST', () => {
+    const stats = computeCardStats(
+      makeProfile({
+        user: {
+          ...makeProfile().user,
+          followers: 0,
+          created_at: new Date(Date.now() - 1 * 365.25 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        repos: [{ name: 'a', language: 'Python', stargazers_count: 2000, forks_count: 0, fork: false }],
+        recentCommitCount: 100,
+      }),
+    )
+    expect(stats.position).toBe('ST')
   })
 })
