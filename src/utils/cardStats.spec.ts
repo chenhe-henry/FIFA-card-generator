@@ -76,7 +76,7 @@ describe('computeCardStats', () => {
     expect(stats.sho).toBe(99)
     expect(stats.pas).toBe(99)
     expect(stats.phy).toBe(99)
-    expect(stats.language).toBe('TypeScript')
+    expect(stats.languages).toEqual(['TypeScript', 'Rust'])
   })
 
   it('excludes forked repos from stars, forks, and language stats', () => {
@@ -92,7 +92,21 @@ describe('computeCardStats', () => {
 
   it('falls back to "Full Stack" when no language signal exists', () => {
     const stats = computeCardStats(makeProfile())
-    expect(stats.language).toBe('Full Stack')
+    expect(stats.languages).toEqual(['Full Stack'])
+  })
+
+  it('caps languages at the top 2 by repo count, most-used first', () => {
+    const stats = computeCardStats(
+      makeProfile({
+        repos: [
+          { name: 'a', language: 'TypeScript', stargazers_count: 0, forks_count: 0, fork: false },
+          { name: 'b', language: 'TypeScript', stargazers_count: 0, forks_count: 0, fork: false },
+          { name: 'c', language: 'Python', stargazers_count: 0, forks_count: 0, fork: false },
+          { name: 'd', language: 'Rust', stargazers_count: 0, forks_count: 0, fork: false },
+        ],
+      }),
+    )
+    expect(stats.languages).toEqual(['TypeScript', 'Python'])
   })
 
   it('reads a defense/physicality-heavy profile as CB', () => {

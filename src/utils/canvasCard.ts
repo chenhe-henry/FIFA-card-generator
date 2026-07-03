@@ -152,11 +152,9 @@ function badgeFor(language: string): LanguageBadge {
   return LANGUAGE_BADGES[language] ?? { color: '#6e7681', textColor: '#ffffff', glyph: language.slice(0, 2).toUpperCase() }
 }
 
-/** Small rounded-square badge, top-right, showing the account's top GitHub language. */
-function drawLanguageBadge(ctx: CanvasRenderingContext2D, language: string): void {
-  const size = WIDTH * 0.16
-  const x = WIDTH * 0.78
-  const y = HEIGHT * 0.045
+const BADGE_RIGHT_EDGE = WIDTH * 0.94
+
+function drawBadge(ctx: CanvasRenderingContext2D, language: string, x: number, y: number, size: number): void {
   const radius = size * 0.22
   const badge = badgeFor(language)
 
@@ -188,6 +186,22 @@ function drawLanguageBadge(ctx: CanvasRenderingContext2D, language: string): voi
     ctx.fillText(badge.glyph, x + size / 2, y + size / 2 + size * 0.02)
   }
   ctx.restore()
+}
+
+/**
+ * Top-right badge stack for the account's top 1-2 GitHub languages. Two badges
+ * are drawn smaller and stacked vertically, right-aligned with the single-badge case.
+ */
+function drawLanguageBadges(ctx: CanvasRenderingContext2D, languages: string[]): void {
+  const count = Math.min(languages.length, 2)
+  const size = count === 1 ? WIDTH * 0.16 : WIDTH * 0.125
+  const gap = HEIGHT * 0.02
+  const x = BADGE_RIGHT_EDGE - size
+  const startY = HEIGHT * 0.045
+
+  for (let i = 0; i < count; i++) {
+    drawBadge(ctx, languages[i], x, startY + i * (size + gap), size)
+  }
 }
 
 /**
@@ -425,7 +439,7 @@ export function drawPlayerCard(canvas: HTMLCanvasElement, data: CardRenderData, 
   drawSunburst(ctx, style)
   drawAvatar(ctx, avatarImage)
   drawHeader(ctx, data.stats, style)
-  drawLanguageBadge(ctx, data.stats.language)
+  drawLanguageBadges(ctx, data.stats.languages)
   drawName(ctx, data.displayName, data.handle, style)
   drawStats(ctx, data.stats, style)
   ctx.restore()

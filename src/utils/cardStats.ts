@@ -10,8 +10,8 @@ export interface CardStats {
   ovr: number
   /** FIFA-style position code (e.g. "CAM", "CB", "GK"), derived from the stat profile. */
   position: string
-  /** Most-used GitHub language (e.g. "TypeScript", "Vue"), shown as a badge, not a position. */
-  language: string
+  /** Top 1-2 most-used GitHub languages, shown as badges, not a position. */
+  languages: string[]
 }
 
 const BASE_FLOOR = 30
@@ -37,22 +37,19 @@ function socialStatFloor(yearsActive: number, recentCommitCount: number): number
   return Math.round(BASE_FLOOR + tenureBonus + activityBonus)
 }
 
-function topLanguage(repos: GitHubProfileData['repos']): string {
+/** Top languages by repo count, most-used first. Falls back to a single "Full Stack" entry. */
+function topLanguages(repos: GitHubProfileData['repos'], limit = 2): string[] {
   const counts = new Map<string, number>()
   for (const repo of repos) {
     if (repo.fork || !repo.language) continue
     counts.set(repo.language, (counts.get(repo.language) ?? 0) + 1)
   }
+  if (counts.size === 0) return ['Full Stack']
 
-  let best: string | null = null
-  let bestCount = 0
-  for (const [language, count] of counts) {
-    if (count > bestCount) {
-      best = language
-      bestCount = count
-    }
-  }
-  return best ?? 'Full Stack'
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([language]) => language)
 }
 
 function yearsSince(isoDate: string): number {
@@ -125,5 +122,5 @@ export function computeCardStats(data: GitHubProfileData): CardStats {
   const ovr = Math.round((pac + sho + pas + dri + def + phy) / 6)
   const position = derivePosition({ pac, sho, pas, dri, def, phy, ovr })
 
-  return { pac, sho, pas, dri, def, phy, ovr, position, language: topLanguage(data.repos) }
+  return { pac, sho, pas, dri, def, phy, ovr, position, languages: topLanguages(data.repos) }
 }
