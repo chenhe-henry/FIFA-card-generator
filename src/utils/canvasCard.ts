@@ -25,6 +25,30 @@ const HEIGHT = 500
 // Render at 2x for crisp text/edges on retina and in the downloaded PNG.
 const SCALE = 2
 
+// The shield is inset from the canvas edge, leaving a margin for the tier
+// glow (a colored drop-shadow) to bleed into without being clipped.
+const MARGIN_X = WIDTH * 0.05
+const MARGIN_Y = HEIGHT * 0.05
+const CARD_W = WIDTH - MARGIN_X * 2
+const CARD_H = HEIGHT - MARGIN_Y * 2
+
+/** Maps a fraction of the card's own width (0-1) to an absolute canvas x. */
+function cardX(fx: number): number {
+  return MARGIN_X + fx * CARD_W
+}
+
+/** Maps a fraction of the card's own height (0-1) to an absolute canvas y. */
+function cardY(fy: number): number {
+  return MARGIN_Y + fy * CARD_H
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const clean = hex.replace('#', '')
+  const full = clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean
+  const n = parseInt(full, 16)
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`
+}
+
 /**
  * Gold caps at 89. Above that, which special tier a card gets depends on *why*
  * it rated so highly: TOTY rewards a huge recent-activity spike (PAC), Icon
@@ -51,6 +75,8 @@ interface TierStyle {
   frameInner: string
   divider: string
   label: string
+  /** Ambient drop-shadow color cast outside the card, tinted to the tier. */
+  glow: string
 }
 
 const TIER_STYLES: Record<Tier, TierStyle> = {
@@ -63,6 +89,7 @@ const TIER_STYLES: Record<Tier, TierStyle> = {
     frameInner: '#5e3617',
     divider: 'rgba(46, 26, 13, 0.4)',
     label: '',
+    glow: 'rgba(190, 120, 60, 0.55)',
   },
   silver: {
     gradient: ['#9a9a9a', '#eceff1', '#8f9296'],
@@ -73,6 +100,7 @@ const TIER_STYLES: Record<Tier, TierStyle> = {
     frameInner: '#7a7d82',
     divider: 'rgba(38, 40, 43, 0.35)',
     label: '',
+    glow: 'rgba(170, 188, 210, 0.55)',
   },
   gold: {
     gradient: ['#b8860b', '#f7e08a', '#c8920c'],
@@ -83,6 +111,7 @@ const TIER_STYLES: Record<Tier, TierStyle> = {
     frameInner: '#a5780a',
     divider: 'rgba(74, 52, 0, 0.4)',
     label: '',
+    glow: 'rgba(225, 185, 80, 0.6)',
   },
   toty: {
     gradient: ['#0a1838', '#2c4f9e', '#08122b'],
@@ -93,6 +122,7 @@ const TIER_STYLES: Record<Tier, TierStyle> = {
     frameInner: '#8a6a20',
     divider: 'rgba(255, 255, 255, 0.5)',
     label: 'TEAM OF THE YEAR',
+    glow: 'rgba(90, 140, 255, 0.6)',
   },
   icon: {
     gradient: ['#d9c9a3', '#faf6ec', '#cbb98f'],
@@ -103,6 +133,7 @@ const TIER_STYLES: Record<Tier, TierStyle> = {
     frameInner: '#b89b64',
     divider: 'rgba(107, 79, 42, 0.4)',
     label: 'ICON',
+    glow: 'rgba(243, 213, 128, 0.55)',
   },
   'toty-icon': {
     gradient: ['#14285a', '#4a6fc0', '#0e1c40'],
@@ -113,6 +144,7 @@ const TIER_STYLES: Record<Tier, TierStyle> = {
     frameInner: '#aab8dc',
     divider: 'rgba(255, 255, 255, 0.6)',
     label: 'TOTY ICON',
+    glow: 'rgba(140, 170, 255, 0.6)',
   },
 }
 
@@ -151,8 +183,6 @@ const LANGUAGE_BADGES: Record<string, LanguageBadge> = {
 function badgeFor(language: string): LanguageBadge {
   return LANGUAGE_BADGES[language] ?? { color: '#6e7681', textColor: '#ffffff', glyph: language.slice(0, 2).toUpperCase() }
 }
-
-const BADGE_RIGHT_EDGE = WIDTH * 0.94
 
 function drawBadge(ctx: CanvasRenderingContext2D, language: string, x: number, y: number, size: number): void {
   const radius = size * 0.22
@@ -194,10 +224,10 @@ function drawBadge(ctx: CanvasRenderingContext2D, language: string, x: number, y
  */
 function drawLanguageBadges(ctx: CanvasRenderingContext2D, languages: string[]): void {
   const count = Math.min(languages.length, 2)
-  const size = count === 1 ? WIDTH * 0.16 : WIDTH * 0.125
-  const gap = HEIGHT * 0.02
-  const x = BADGE_RIGHT_EDGE - size
-  const startY = HEIGHT * 0.045
+  const size = count === 1 ? CARD_W * 0.16 : CARD_W * 0.125
+  const gap = CARD_H * 0.02
+  const x = cardX(0.94) - size
+  const startY = cardY(0.045)
 
   for (let i = 0; i < count; i++) {
     drawBadge(ctx, languages[i], x, startY + i * (size + gap), size)
@@ -210,10 +240,10 @@ function drawLanguageBadges(ctx: CanvasRenderingContext2D, languages: string[]):
  * edge with rounded corners. Original geometry, not traced from any EA asset.
  */
 function traceShieldPath(ctx: CanvasRenderingContext2D, pad = 0): void {
-  const L = pad
-  const T = pad
-  const w = WIDTH - pad * 2
-  const h = HEIGHT - pad * 2
+  const L = MARGIN_X + pad
+  const T = MARGIN_Y + pad
+  const w = CARD_W - pad * 2
+  const h = CARD_H - pad * 2
   const X = (fx: number): number => L + fx * w
   const Y = (fy: number): number => T + fy * h
 
@@ -231,10 +261,26 @@ function traceShieldPath(ctx: CanvasRenderingContext2D, pad = 0): void {
   ctx.closePath()
 }
 
+/**
+ * A soft, tier-tinted halo behind the card. Filling the shield with a shadow
+ * enabled — then painting the crisp background directly over it — leaves only
+ * the blurred overflow visible outside the card's own edge.
+ */
+function drawGlow(ctx: CanvasRenderingContext2D, style: TierStyle): void {
+  ctx.save()
+  ctx.shadowColor = style.glow
+  ctx.shadowBlur = WIDTH * 0.055
+  ctx.shadowOffsetY = HEIGHT * 0.012
+  traceShieldPath(ctx)
+  ctx.fillStyle = style.glow
+  ctx.fill()
+  ctx.restore()
+}
+
 function drawBackground(ctx: CanvasRenderingContext2D, style: TierStyle): void {
   traceShieldPath(ctx)
   const [a, b, c] = style.gradient
-  const gradient = ctx.createLinearGradient(0, 0, WIDTH * 0.4, HEIGHT)
+  const gradient = ctx.createLinearGradient(cardX(0), cardY(0), cardX(0.4), cardY(1))
   gradient.addColorStop(0, a)
   gradient.addColorStop(0.5, b)
   gradient.addColorStop(1, c)
@@ -247,14 +293,14 @@ function drawBackground(ctx: CanvasRenderingContext2D, style: TierStyle): void {
  * the signature texture of a FIFA gold card.
  */
 function drawSunburst(ctx: CanvasRenderingContext2D, style: TierStyle): void {
-  const cx = WIDTH / 2
-  const cy = HEIGHT * 0.28
+  const originX = cardX(0.5)
+  const originY = cardY(0.28)
   const rays = 44
-  const reach = HEIGHT * 1.1
+  const reach = CARD_H * 1.3
   const [bright, dark] = style.ray
 
   ctx.save()
-  ctx.translate(cx, cy)
+  ctx.translate(originX, originY)
   for (let i = 0; i < rays; i++) {
     const angle = (Math.PI * 2 * i) / rays
     ctx.beginPath()
@@ -289,29 +335,30 @@ function drawHeader(ctx: CanvasRenderingContext2D, stats: CardStats, style: Tier
 
   ctx.fillStyle = style.accent
   ctx.font = '800 54px system-ui, sans-serif'
-  ctx.fillText(String(stats.ovr), WIDTH * 0.1, HEIGHT * 0.16)
+  ctx.fillText(String(stats.ovr), cardX(0.1), cardY(0.16))
 
   ctx.fillStyle = style.text
   ctx.font = 'bold 20px system-ui, sans-serif'
-  ctx.fillText(stats.position, WIDTH * 0.1, HEIGHT * 0.2)
+  ctx.fillText(stats.position, cardX(0.1), cardY(0.2))
 
   // thin rule under the position, mirroring the real card's OVR block
   ctx.strokeStyle = style.divider
   ctx.lineWidth = 1.5
   ctx.beginPath()
-  ctx.moveTo(WIDTH * 0.1, HEIGHT * 0.215)
-  ctx.lineTo(WIDTH * 0.22, HEIGHT * 0.215)
+  ctx.moveTo(cardX(0.1), cardY(0.215))
+  ctx.lineTo(cardX(0.22), cardY(0.215))
   ctx.stroke()
 
   if (style.label) {
     ctx.textAlign = 'center'
     ctx.font = 'bold 11px system-ui, sans-serif'
     ctx.fillStyle = style.accent
-    ctx.fillText(style.label, WIDTH / 2, HEIGHT * 0.12)
+    ctx.fillText(style.label, cardX(0.5), cardY(0.12))
   }
 }
 
-function buildFadedAvatar(image: HTMLImageElement, size: number): HTMLCanvasElement {
+/** Blends the photo into the card: fades alpha at the edges, then tints what remains toward the tier's own color. */
+function buildFadedAvatar(image: HTMLImageElement, size: number, tintColor: string): HTMLCanvasElement {
   const off = document.createElement('canvas')
   off.width = size
   off.height = size
@@ -325,59 +372,63 @@ function buildFadedAvatar(image: HTMLImageElement, size: number): HTMLCanvasElem
 
   // Fade the edges (especially the bottom) so the portrait melts into the card.
   octx.globalCompositeOperation = 'destination-in'
-  const gradient = octx.createRadialGradient(
-    size / 2,
-    size * 0.42,
-    size * 0.28,
-    size / 2,
-    size * 0.42,
-    size * 0.52,
-  )
-  gradient.addColorStop(0, 'rgba(0, 0, 0, 1)')
-  gradient.addColorStop(0.85, 'rgba(0, 0, 0, 0.9)')
-  gradient.addColorStop(1, 'rgba(0, 0, 0, 0)')
-  octx.fillStyle = gradient
+  const fade = octx.createRadialGradient(size / 2, size * 0.42, size * 0.28, size / 2, size * 0.42, size * 0.52)
+  fade.addColorStop(0, 'rgba(0, 0, 0, 1)')
+  fade.addColorStop(0.85, 'rgba(0, 0, 0, 0.9)')
+  fade.addColorStop(1, 'rgba(0, 0, 0, 0)')
+  octx.fillStyle = fade
+  octx.fillRect(0, 0, size, size)
+
+  // Tint the fading edge toward the card's own color, so it blends chromatically
+  // rather than just revealing whatever is behind it.
+  octx.globalCompositeOperation = 'source-atop'
+  const tint = octx.createRadialGradient(size / 2, size * 0.42, size * 0.3, size / 2, size * 0.42, size * 0.52)
+  tint.addColorStop(0, 'rgba(0, 0, 0, 0)')
+  tint.addColorStop(1, tintColor)
+  octx.fillStyle = tint
   octx.fillRect(0, 0, size, size)
 
   return off
 }
 
-function drawAvatar(ctx: CanvasRenderingContext2D, image: HTMLImageElement | null): void {
+function drawAvatar(ctx: CanvasRenderingContext2D, image: HTMLImageElement | null, style: TierStyle): void {
   if (!image) return
 
-  const cx = WIDTH / 2
-  const cy = HEIGHT * 0.36
-  const size = WIDTH * 0.66
+  const centerX = cardX(0.5)
+  const centerY = cardY(0.36)
+  const size = CARD_W * 0.66
+  const tint = hexToRgba(style.gradient[1], 0.5)
 
-  const faded = buildFadedAvatar(image, size * SCALE)
-  ctx.drawImage(faded, cx - size / 2, cy - size / 2, size, size)
+  const faded = buildFadedAvatar(image, size * SCALE, tint)
+  ctx.drawImage(faded, centerX - size / 2, centerY - size / 2, size, size)
 }
 
 function drawName(ctx: CanvasRenderingContext2D, name: string, handle: string, style: TierStyle): void {
-  const nameY = HEIGHT * 0.6
+  const nameY = cardY(0.6)
+  const centerX = cardX(0.5)
 
   ctx.textAlign = 'center'
   ctx.fillStyle = style.text
   ctx.font = '800 26px system-ui, sans-serif'
-  ctx.fillText(name.slice(0, 20).toUpperCase(), WIDTH / 2, nameY)
+  ctx.fillText(name.slice(0, 20).toUpperCase(), centerX, nameY)
 
   ctx.font = '14px system-ui, sans-serif'
   ctx.globalAlpha = 0.7
-  ctx.fillText(`@${handle}`, WIDTH / 2, nameY + 20)
+  ctx.fillText(`@${handle}`, centerX, nameY + 20)
   ctx.globalAlpha = 1
 
   // divider line under the name, tapered toward the edges
   const dividerY = nameY + 34
-  const half = WIDTH * 0.36
-  const grad = ctx.createLinearGradient(WIDTH / 2 - half, 0, WIDTH / 2 + half, 0)
+  const half = CARD_W * 0.36
+  const grad = ctx.createLinearGradient(centerX - half, 0, centerX + half, 0)
   grad.addColorStop(0, 'rgba(0,0,0,0)')
   grad.addColorStop(0.5, style.divider)
   grad.addColorStop(1, 'rgba(0,0,0,0)')
   ctx.strokeStyle = grad
   ctx.lineWidth = 1.5
   ctx.beginPath()
-  ctx.moveTo(WIDTH / 2 - half, dividerY)
-  ctx.lineTo(WIDTH / 2 + half, dividerY)
+  ctx.moveTo(centerX - half, dividerY)
+  ctx.lineTo(centerX + half, dividerY)
   ctx.stroke()
 }
 
@@ -391,13 +442,13 @@ function drawStats(ctx: CanvasRenderingContext2D, stats: CardStats, style: TierS
     ['PHY', stats.phy],
   ]
 
-  const inset = WIDTH * 0.11
-  const columnWidth = (WIDTH - inset * 2) / entries.length
-  const valueY = HEIGHT * 0.715
+  const insetFrac = 0.11
+  const colFracWidth = (1 - insetFrac * 2) / entries.length
+  const valueY = cardY(0.715)
   const labelY = valueY + 19
 
   entries.forEach(([label, value], index) => {
-    const x = inset + columnWidth * index + columnWidth / 2
+    const x = cardX(insetFrac + colFracWidth * index + colFracWidth / 2)
 
     ctx.textAlign = 'center'
     ctx.fillStyle = style.text
@@ -431,13 +482,14 @@ export function drawPlayerCard(canvas: HTMLCanvasElement, data: CardRenderData, 
   const style = TIER_STYLES[data.forcedTier ?? tierFor(data.stats)]
 
   ctx.clearRect(0, 0, WIDTH, HEIGHT)
+  drawGlow(ctx, style)
   drawBackground(ctx, style)
 
   ctx.save()
   traceShieldPath(ctx)
   ctx.clip()
   drawSunburst(ctx, style)
-  drawAvatar(ctx, avatarImage)
+  drawAvatar(ctx, avatarImage, style)
   drawHeader(ctx, data.stats, style)
   drawLanguageBadges(ctx, data.stats.languages)
   drawName(ctx, data.displayName, data.handle, style)
