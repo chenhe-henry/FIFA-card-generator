@@ -148,12 +148,14 @@ const TIER_STYLES: Record<Tier, TierStyle> = {
   },
 }
 
+type BadgeShape = 'vue' | 'python' | 'rust' | 'java' | 'ruby'
+
 interface LanguageBadge {
   color: string
   textColor: string
   glyph: string
-  /** 'triangle' draws a simplified brand mark instead of the glyph text. */
-  shape?: 'triangle'
+  /** When set, draws a simplified brand mark instead of the glyph text. */
+  shape?: BadgeShape
 }
 
 /**
@@ -164,12 +166,12 @@ interface LanguageBadge {
 const LANGUAGE_BADGES: Record<string, LanguageBadge> = {
   TypeScript: { color: '#3178c6', textColor: '#ffffff', glyph: 'TS' },
   JavaScript: { color: '#f7df1e', textColor: '#1a1a1a', glyph: 'JS' },
-  Vue: { color: '#42b883', textColor: '#ffffff', glyph: '', shape: 'triangle' },
-  Python: { color: '#3776ab', textColor: '#ffd43b', glyph: 'PY' },
-  Rust: { color: '#dea584', textColor: '#1a1a1a', glyph: 'RS' },
+  Vue: { color: '#42b883', textColor: '#ffffff', glyph: '', shape: 'vue' },
+  Python: { color: '#ffffff', textColor: '#1a1a1a', glyph: '', shape: 'python' },
+  Rust: { color: '#ffffff', textColor: '#1a1a1a', glyph: '', shape: 'rust' },
   Go: { color: '#00add8', textColor: '#ffffff', glyph: 'GO' },
-  Java: { color: '#e76f00', textColor: '#ffffff', glyph: 'JV' },
-  Ruby: { color: '#cc342d', textColor: '#ffffff', glyph: 'RB' },
+  Java: { color: '#ffffff', textColor: '#1a1a1a', glyph: '', shape: 'java' },
+  Ruby: { color: '#ffffff', textColor: '#1a1a1a', glyph: '', shape: 'ruby' },
   PHP: { color: '#787cb5', textColor: '#ffffff', glyph: 'PHP' },
   Swift: { color: '#f05138', textColor: '#ffffff', glyph: 'SW' },
   Kotlin: { color: '#7f52ff', textColor: '#ffffff', glyph: 'KT' },
@@ -182,6 +184,151 @@ const LANGUAGE_BADGES: Record<string, LanguageBadge> = {
 
 function badgeFor(language: string): LanguageBadge {
   return LANGUAGE_BADGES[language] ?? { color: '#6e7681', textColor: '#ffffff', glyph: language.slice(0, 2).toUpperCase() }
+}
+
+/** Vue's mark: a wide chevron/mountain outline with a triangular notch cut from the top, reading as a "V". */
+function drawVueMark(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, fill: string, cut: string): void {
+  const cx = x + size / 2
+  ctx.beginPath()
+  ctx.moveTo(cx, y + size * 0.22)
+  ctx.lineTo(x + size * 0.88, y + size * 0.8)
+  ctx.lineTo(x + size * 0.12, y + size * 0.8)
+  ctx.closePath()
+  ctx.fillStyle = fill
+  ctx.fill()
+
+  ctx.beginPath()
+  ctx.moveTo(cx, y + size * 0.66)
+  ctx.lineTo(x + size * 0.68, y + size * 0.34)
+  ctx.lineTo(x + size * 0.32, y + size * 0.34)
+  ctx.closePath()
+  ctx.fillStyle = cut
+  ctx.fill()
+}
+
+/** Two interlocking rounded bodies (blue over yellow), each with a small "eye" punched out. */
+function drawPythonMark(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, tile: string): void {
+  const s = size
+  ctx.beginPath()
+  ctx.moveTo(x + s * 0.5, y + s * 0.08)
+  ctx.quadraticCurveTo(x + s * 0.82, y + s * 0.08, x + s * 0.82, y + s * 0.32)
+  ctx.lineTo(x + s * 0.82, y + s * 0.48)
+  ctx.lineTo(x + s * 0.28, y + s * 0.48)
+  ctx.quadraticCurveTo(x + s * 0.18, y + s * 0.48, x + s * 0.18, y + s * 0.34)
+  ctx.quadraticCurveTo(x + s * 0.18, y + s * 0.08, x + s * 0.5, y + s * 0.08)
+  ctx.closePath()
+  ctx.fillStyle = '#3776ab'
+  ctx.fill()
+
+  ctx.beginPath()
+  ctx.arc(x + s * 0.66, y + s * 0.2, s * 0.045, 0, Math.PI * 2)
+  ctx.fillStyle = tile
+  ctx.fill()
+
+  ctx.beginPath()
+  ctx.moveTo(x + s * 0.5, y + s * 0.92)
+  ctx.quadraticCurveTo(x + s * 0.18, y + s * 0.92, x + s * 0.18, y + s * 0.68)
+  ctx.lineTo(x + s * 0.18, y + s * 0.52)
+  ctx.lineTo(x + s * 0.72, y + s * 0.52)
+  ctx.quadraticCurveTo(x + s * 0.82, y + s * 0.52, x + s * 0.82, y + s * 0.66)
+  ctx.quadraticCurveTo(x + s * 0.82, y + s * 0.92, x + s * 0.5, y + s * 0.92)
+  ctx.closePath()
+  ctx.fillStyle = '#ffd43b'
+  ctx.fill()
+
+  ctx.beginPath()
+  ctx.arc(x + s * 0.34, y + s * 0.8, s * 0.045, 0, Math.PI * 2)
+  ctx.fillStyle = tile
+  ctx.fill()
+}
+
+/** A gear silhouette with a hollow center, Rust's mark. */
+function drawRustMark(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, tile: string): void {
+  const s = size
+  const cx = x + s / 2
+  const cy = y + s / 2
+  const outerR = s * 0.34
+  const teeth = 8
+
+  ctx.save()
+  ctx.translate(cx, cy)
+  ctx.fillStyle = '#2b2b2b'
+  ctx.beginPath()
+  ctx.arc(0, 0, outerR, 0, Math.PI * 2)
+  ctx.fill()
+  for (let i = 0; i < teeth; i++) {
+    ctx.save()
+    ctx.rotate((Math.PI * 2 * i) / teeth)
+    ctx.fillRect(-s * 0.035, -outerR - s * 0.055, s * 0.07, s * 0.09)
+    ctx.restore()
+  }
+  ctx.restore()
+
+  ctx.beginPath()
+  ctx.arc(cx, cy, s * 0.2, 0, Math.PI * 2)
+  ctx.fillStyle = tile
+  ctx.fill()
+
+  ctx.beginPath()
+  ctx.arc(cx, cy, s * 0.11, 0, Math.PI * 2)
+  ctx.strokeStyle = '#2b2b2b'
+  ctx.lineWidth = Math.max(1, s * 0.03)
+  ctx.stroke()
+}
+
+/** A coffee cup with a handle and rising steam, Java's mark. */
+function drawJavaMark(ctx: CanvasRenderingContext2D, x: number, y: number, size: number): void {
+  const s = size
+  ctx.beginPath()
+  ctx.moveTo(x + s * 0.26, y + s * 0.46)
+  ctx.lineTo(x + s * 0.74, y + s * 0.46)
+  ctx.lineTo(x + s * 0.66, y + s * 0.86)
+  ctx.quadraticCurveTo(x + s * 0.5, y + s * 0.93, x + s * 0.34, y + s * 0.86)
+  ctx.closePath()
+  ctx.fillStyle = '#e76f00'
+  ctx.fill()
+
+  ctx.beginPath()
+  ctx.moveTo(x + s * 0.72, y + s * 0.53)
+  ctx.quadraticCurveTo(x + s * 0.9, y + s * 0.56, x + s * 0.87, y + s * 0.7)
+  ctx.quadraticCurveTo(x + s * 0.84, y + s * 0.81, x + s * 0.68, y + s * 0.78)
+  ctx.strokeStyle = '#e76f00'
+  ctx.lineWidth = Math.max(1.5, s * 0.05)
+  ctx.stroke()
+
+  ctx.strokeStyle = 'rgba(120, 120, 120, 0.7)'
+  ctx.lineWidth = Math.max(1, s * 0.03)
+  ctx.lineCap = 'round'
+  for (const sx of [0.38, 0.5, 0.62]) {
+    ctx.beginPath()
+    ctx.moveTo(x + s * sx, y + s * 0.38)
+    ctx.quadraticCurveTo(x + s * (sx + 0.05), y + s * 0.27, x + s * sx, y + s * 0.16)
+    ctx.stroke()
+  }
+}
+
+/** A faceted gem, Ruby's mark. */
+function drawRubyMark(ctx: CanvasRenderingContext2D, x: number, y: number, size: number): void {
+  const s = size
+  const cx = x + s / 2
+  ctx.beginPath()
+  ctx.moveTo(cx, y + s * 0.14)
+  ctx.lineTo(x + s * 0.83, y + s * 0.36)
+  ctx.lineTo(x + s * 0.68, y + s * 0.86)
+  ctx.lineTo(x + s * 0.32, y + s * 0.86)
+  ctx.lineTo(x + s * 0.17, y + s * 0.36)
+  ctx.closePath()
+  ctx.fillStyle = '#cc342d'
+  ctx.fill()
+
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)'
+  ctx.lineWidth = Math.max(1, s * 0.025)
+  ctx.beginPath()
+  ctx.moveTo(cx, y + s * 0.14)
+  ctx.lineTo(cx, y + s * 0.86)
+  ctx.moveTo(x + s * 0.17, y + s * 0.36)
+  ctx.lineTo(x + s * 0.83, y + s * 0.36)
+  ctx.stroke()
 }
 
 function drawBadge(ctx: CanvasRenderingContext2D, language: string, x: number, y: number, size: number): void {
@@ -199,21 +346,28 @@ function drawBadge(ctx: CanvasRenderingContext2D, language: string, x: number, y
   ctx.fillStyle = badge.color
   ctx.fill()
 
-  if (badge.shape === 'triangle') {
-    const cx = x + size / 2
-    ctx.beginPath()
-    ctx.moveTo(cx, y + size * 0.24)
-    ctx.lineTo(x + size * 0.76, y + size * 0.76)
-    ctx.lineTo(x + size * 0.24, y + size * 0.76)
-    ctx.closePath()
-    ctx.fillStyle = badge.textColor
-    ctx.fill()
-  } else {
-    ctx.fillStyle = badge.textColor
-    ctx.font = `800 ${size * 0.32}px system-ui, sans-serif`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(badge.glyph, x + size / 2, y + size / 2 + size * 0.02)
+  switch (badge.shape) {
+    case 'vue':
+      drawVueMark(ctx, x, y, size, badge.textColor, badge.color)
+      break
+    case 'python':
+      drawPythonMark(ctx, x, y, size, badge.color)
+      break
+    case 'rust':
+      drawRustMark(ctx, x, y, size, badge.color)
+      break
+    case 'java':
+      drawJavaMark(ctx, x, y, size)
+      break
+    case 'ruby':
+      drawRubyMark(ctx, x, y, size)
+      break
+    default:
+      ctx.fillStyle = badge.textColor
+      ctx.font = `800 ${size * 0.32}px system-ui, sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(badge.glyph, x + size / 2, y + size / 2 + size * 0.02)
   }
   ctx.restore()
 }
